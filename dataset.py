@@ -107,15 +107,29 @@ def _unzip_samples(samples):
     return images, cls_targets, reg_targets
 
 
-def collate_factory():
+def _apply_transforms(data, transforms):
+    """
+    Apply transforms on data.
+    """
+    for t in transforms:
+        data = t(**data)
+    
+    return data
+
+
+def collate_factory(transforms):
     def collate_fn(samples):
         # unzip images and labels
         images, cls_targets, reg_targets = _unzip_samples(samples)
 
         # apply transforms
+        data = {
+            "images": images,
+            "cls_targets": cls_targets,
+            "reg_targets": reg_targets
+        }
+        data = _apply_transforms(data, transforms)
 
-        # convert labels to matrices
-
-        return
+        return data["images"], data["cls_targets"], data["reg_targets"]
 
     return collate_fn
