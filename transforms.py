@@ -5,6 +5,9 @@ import torch
 from dataset import xyxy2xywh
 
 
+NINF = -9e6
+
+
 class NormalizeBboxes:
     """
     Normalize bounding boxes.
@@ -41,11 +44,9 @@ class NormalizeBboxes:
         centers_indices = [np.floor(center).astype(int)
             for center in centers_norm]
 
-        # calculate normalized centers' coordinates within each grid cell
+        # calculate normalized centers and sizes
         bboxes_centers_norm = [norm - idx for norm, idx
             in zip(centers_norm, centers_indices)]
-
-        # calculate normalized widths and heights
         bboxes_sizes_norm = [xywh[:, 2:] / cell_size for xywh, cell_size
             in zip(reg_targets_xywh, cell_sizes)]
 
@@ -68,6 +69,7 @@ class Bboxes2Matrices:
     grid_size : tuple of int
         Size of the grid in the last feature map.
     """
+
     def __init__(self, grid_size, num_classes):
         self.grid_size = grid_size
         self.num_classes = num_classes
@@ -79,7 +81,7 @@ class Bboxes2Matrices:
 
         # construct empty target matrices
         cls_mat = np.ones((b, 1) + self.grid_size, dtype=np.int16) * -1
-        reg_mat = np.ones((b, 4) + self.grid_size) * -1
+        reg_mat = np.ones((b, 4) + self.grid_size) * NINF
 
         # fill each object in matrices
         for i in range(b):
@@ -141,6 +143,9 @@ class Normalize:
 
 
 class ToTensor:
+    """
+    Convert inputs to tensors.
+    """
 
     def __call__(self, **kwargs):
         kwargs["images"] = np.stack(kwargs["images"]).transpose(0, 3, 1, 2)

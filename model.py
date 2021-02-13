@@ -2,7 +2,7 @@ import torch.nn as nn
 from torchvision.models import resnext50_32x4d
 
 
-def get_resnext_backbone(backbone_fn, pretrained=True):
+def _get_resnext_backbone(backbone_fn, pretrained):
     """
     Get ResNeXt backbone.
 
@@ -10,8 +10,8 @@ def get_resnext_backbone(backbone_fn, pretrained=True):
     ----------
     backbone_fn : function
         Function tht returns a PyTorch model.
-    pretrained : bool, optional
-        Whether to load pretrained weights. The default value is 0.
+    pretrained : bool
+        Whether to load pretrained weights.
     
     Returns
     -------
@@ -30,6 +30,18 @@ def get_resnext_backbone(backbone_fn, pretrained=True):
     return backbone
 
 
+class YOLOResNeXt(nn.Sequential):
+
+    def __init__(self, backbone_fn, num_classes, pretrained=True):
+        super().__init__()
+        self.add_module("backbone", _get_resnext_backbone(backbone_fn,
+            pretrained=pretrained))
+        self.add_module("output_layer", nn.Conv2d(2048, num_classes, 1)) 
+
+
 if __name__ == "__main__":
-    model = _get_resnext_backbone(resnext50_32x4d)
-    print(model)
+    from torchsummary import summary
+
+
+    model = YOLOResNeXt(resnext50_32x4d, 21).cuda()
+    summary(model, (3, 224, 224))

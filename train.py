@@ -22,7 +22,7 @@ def _parse_cmd_args():
 
     parser.add_argument("--root", required=True,
         help="Root directory of data and logs.")
-    parser.add_argument("--log_dir", default=None,
+    parser.add_argument("--log_dir", default="logs",
         help="Sub-directory of tensorboard logs.")
     parser.add_argument("--gpu", default="0", help="GPU device ID.")
 
