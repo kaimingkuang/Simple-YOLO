@@ -150,7 +150,8 @@ def collate_factory(transforms):
     return collate_fn
 
 
-def get_dataloader(dataset, transforms, batch_size, shuffle, num_workers=0):
+def get_dataloader(dataset, transforms, batch_size, shuffle=False,
+        num_workers=0):
     """
     Create dataloader from dataset.
 
@@ -163,8 +164,9 @@ def get_dataloader(dataset, transforms, batch_size, shuffle, num_workers=0):
         transforms.
     batch_size : int
         Dataloader's batch size.
-    shuffle : bool
+    shuffle : bool, optional
         Whether to shuffle samples when collating data.
+        The default value is False.
     num_workers : int, optional
         How many subprocesses to use for data loading. 0 means that
         the data will be loaded in the main process. The default value is 0.

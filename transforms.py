@@ -115,6 +115,18 @@ class Resize:
 
 
 class Normalize:
+    """
+    Normalize image pixel values.
+
+    Parameters
+    ----------
+    mean : tuple of float
+        Image pixel means.
+    std : tuple of float
+        Image pixel standard deviations.
+    scale : float
+        Image pixel scale.
+    """
 
     def __init__(self, mean, std, scale):
         self.mean = np.array(mean)
@@ -146,7 +158,10 @@ if __name__ == "__main__":
     from dataset import VOCDataset, get_dataloader
 
 
-    ds = VOCDataset(root="/mnt/storage/kaiming/etc/", image_set="trainval")
+    ds_train = VOCDataset(root="/mnt/storage/kaiming/etc/voc2012",
+        image_set="train")
+    ds_val = VOCDataset(root="/mnt/storage/kaiming/etc/voc2012",
+        image_set="val")
     grid_size = (7, 7)
     num_classes = 21
     target_size = (224, 224)
@@ -159,7 +174,7 @@ if __name__ == "__main__":
         Normalize(mean, std, 1. / 255),
         ToTensor()
     ]
-    dl = get_dataloader(ds, transforms, 4, False)
+    dl = get_dataloader(ds_val, transforms, 4, False)
     for i, sample in enumerate(dl):
         images, cls_targets, reg_targets = sample
         print(images.size())
