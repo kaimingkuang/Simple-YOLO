@@ -80,13 +80,13 @@ class Bboxes2Matrices:
         b = len(cls_targets)
 
         # construct empty target matrices
-        cls_mat = np.ones((b, 1) + self.grid_size, dtype=np.int16) * -1
+        cls_mat = np.ones((b, ) + self.grid_size, dtype=np.int16) * -1
         reg_mat = np.ones((b, 4) + self.grid_size) * NINF
 
         # fill each object in matrices
         for i in range(b):
             obj_indices = kwargs["obj_indices"][i].T.tolist()
-            cls_mat[i, 0, obj_indices[1], obj_indices[0]] = cls_targets[i]
+            cls_mat[i, obj_indices[1], obj_indices[0]] = cls_targets[i]
             reg_mat[i, :, obj_indices[1], obj_indices[0]] = reg_targets[i]
 
         cls_mat = cls_mat + 1
@@ -152,9 +152,10 @@ class ToTensor:
         kwargs["cls_targets"] = np.stack(kwargs["cls_targets"])
         kwargs["reg_targets"] = np.stack(kwargs["reg_targets"])
 
-        kwargs["images"] = torch.from_numpy(kwargs["images"])
+        kwargs["images"] = torch.from_numpy(kwargs["images"]).float()
         kwargs["cls_targets"] = torch.from_numpy(kwargs["cls_targets"]).long()
-        kwargs["reg_targets"] = torch.from_numpy(kwargs["reg_targets"])
+        kwargs["reg_targets"] = torch.from_numpy(kwargs["reg_targets"])\
+            .float()
 
         return kwargs
 

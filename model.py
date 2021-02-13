@@ -30,13 +30,45 @@ def _get_resnext_backbone(backbone_fn, pretrained):
     return backbone
 
 
-class YOLOResNeXt(nn.Sequential):
+class YOLOResNeXt(nn.Module):
+    """
+    ResNeXt based YOLO.
+
+    Parameters
+    ----------
+    backbone_fn : function
+        Function tht returns a PyTorch model.
+    num_classes : int
+        Number of classes.
+    pretrained : bool
+        Whether to load pretrained weights.
+    """
 
     def __init__(self, backbone_fn, num_classes, pretrained=True):
         super().__init__()
-        self.add_module("backbone", _get_resnext_backbone(backbone_fn,
-            pretrained=pretrained))
-        self.add_module("output_layer", nn.Conv2d(2048, num_classes, 1)) 
+        self.backbone = _get_resnext_backbone(backbone_fn, pretrained)
+        self.cls_head = nn.Conv2d(2048, num_classes, 1)
+        self.reg_head = nn.Conv2d(2048, 4, 1)
+
+    def forward(self, images):
+        """
+        Parameters
+        ----------
+        images : torch.Tensor
+            Image tensor in shape of N x H x W x C.
+        
+        Returns
+        -------
+        cls_output : torch.Tensor
+            Classification output.
+        reg_output : torch.Tensor
+            Regression output.
+        """
+        features = self.backbone(images)
+        cls_output = self.cls_head(features)
+        reg_output = self.reg_head(features)
+
+        return cls_output, reg_output
 
 
 if __name__ == "__main__":

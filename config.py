@@ -8,3 +8,11 @@ num_classes = 21
 # training configuration
 batch_size = 16
 epochs = 100
+w_cls = 1
+w_reg = 5
+w_pos = 1
+w_neg = 0.5
+max_lr = 1e-3
+min_lr = 1e-6
+final_div_factor = min_lr / max_lr
+pct_start = 0.05

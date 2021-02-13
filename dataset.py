@@ -83,7 +83,8 @@ class VOCDataset(VOCDetection):
         """
         objects = annots["annotation"]["object"]
         labels = [(CLASSES.index(obj["name"]),
-            [int(dim) for dim in obj["bndbox"].values()]) for obj in objects]
+            [int(obj["bndbox"][k]) for k in ["xmin", "ymin", "xmax", "ymax"]])
+            for obj in objects]
         cls_targets = np.array([x[0] for x in labels])
         reg_targets = np.array([x[1] for x in labels])
 

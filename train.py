@@ -4,11 +4,15 @@ import warnings
 
 import numpy as np
 import torch
+from torch import optim
+from torchvision.models import resnext50_32x4d
 from tqdm import tqdm
 
 import config as cfg
 import transforms as aug
 from dataset import VOCDataset, get_dataloader
+from losses import DetectLoss
+from model import YOLOResNeXt
 
 
 warnings.filterwarnings("ignore")
@@ -25,6 +29,10 @@ def _parse_cmd_args():
     parser.add_argument("--log_dir", default="logs",
         help="Sub-directory of tensorboard logs.")
     parser.add_argument("--gpu", default="0", help="GPU device ID.")
+
+    args = parser.parse_args()
+
+    return args
 
 
 def _setup_dataloaders(root_dir):
@@ -43,23 +51,68 @@ def _setup_dataloaders(root_dir):
 
     ds_train = VOCDataset(root_dir, image_set="train")
     dl_train = get_dataloader(ds_train, transforms_train, cfg.batch_size,
-        True, 4)
+        False)
     ds_val = VOCDataset(root_dir, image_set="val")
     dl_val = get_dataloader(ds_val, transforms_val, cfg.batch_size)
 
     return dl_train, dl_val
 
 
-def _train_epoch(model, dl_train):
+def _get_description_str(epoch_idx):
+    """
+    Get progress bar description string.
+    """
+    total_digits = len(str(cfg.epochs))
+    cur_digits = len(str(epoch_idx))
+    sup_digits = total_digits - cur_digits
+    desc_str = f"Epoch {'0' * (sup_digits) + str(epoch_idx)}/{cfg.epochs}"
+
+    return desc_str
+
+
+def _train_epoch(model, dl_train, criterion, optimizer, scheduler, epoch_idx):
     """
     Train the model for an epoch.
     """
-    n_digits = len(str(cfg.epochs))
+    model.train()
+
     progress = tqdm(total=len(dl_train), ncols=150)
+    progress.set_description(_get_description_str(epoch_idx))
+
+    loss_train = 0
+    cls_loss_train = 0
+    reg_loss_train = 0
+    len_train = 0
 
     for _, sample in enumerate(dl_train):
-        images, cls_targets, reg_targets = sample
+        optimizer.zero_grad()
 
+        images, cls_target, reg_target = sample
+        images = images.cuda()
+        cls_target = cls_target.cuda()
+        reg_target = reg_target.cuda()
+
+        cls_output, reg_output = model(images)
+        total_loss, cls_loss, reg_loss = criterion(cls_output, reg_output,
+            cls_target, reg_target)
+
+        total_loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        loss_train += total_loss.detach().cpu().item() * images.size(0)
+        cls_loss_train += cls_loss.detach().cpu().item() * images.size(0)
+        reg_loss_train += reg_loss.detach().cpu().item() * images.size(0)
+        len_train += images.size(0)
+
+        progress.set_postfix_str(f"loss={total_loss.cpu().item():.4f}, "\
+            f"cls_loss={cls_loss.cpu().item():.4f}, "\
+            f"reg_loss={reg_loss.cpu().item():.4f}")
+        progress.update()
+
+    progress.close()
+
+    return loss_train, cls_loss_train, reg_loss_train
 
 
 def main():
@@ -80,9 +133,16 @@ def main():
     # get dataloaders
     dl_train, dl_val = _setup_dataloaders(root_dir)
 
+    # model, criterion, optimizer and scheduler setup
+    model = YOLOResNeXt(resnext50_32x4d, cfg.num_classes).cuda()
+    criterion = DetectLoss(cfg.w_cls, cfg.w_reg, cfg.w_pos, cfg.w_neg)
+    optimizer = optim.AdamW(model.parameters())
+    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, cfg.max_lr,
+        total_steps=cfg.epochs * len(dl_train), pct_start=cfg.pct_start,
+        final_div_factor=cfg.final_div_factor)
+
     for i in range(cfg.epochs):
-        progress = tqdm(total=len(dl_train), ncols=150)
-        progress.set_description
+        _train_epoch(model, dl_train, criterion, optimizer, scheduler, i)
 
 
 if __name__ == "__main__":
