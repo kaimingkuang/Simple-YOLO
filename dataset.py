@@ -18,7 +18,7 @@ CLASSES = [
     "dog",
     "horse",
     "motorbike",
-    "people",
+    "person",
     "pottedplant",
     "sheep",
     "sofa",
@@ -33,18 +33,19 @@ def xyxy2xywh(xyxy):
 
     Parameters
     ----------
-    xyxy : sequence of float
+    xyxy : numpy.ndarray
         Bounding boxes in xyxy format.
     
     Returns
     -------
-    xywh : sequence of float
+    xywh : numpy.ndarray
         Bounding boxes in xywh format.
     """
-    x_min, y_min, x_max, y_max = xyxy
+    x_min, y_min = xyxy[:, 0], xyxy[:, 1]
+    x_max, y_max = xyxy[:, 2], xyxy[:, 3]
     center_x, center_y = (x_min + x_max) / 2, (y_min + y_max) / 2
     width, height = x_max - x_min, y_max - y_min
-    xywh = (center_x, center_y, width, height)
+    xywh = np.stack((center_x, center_y, width, height), axis=1)
 
     return xywh
 
@@ -55,18 +56,19 @@ def xywh2xyxy(xywh):
 
     Parameters
     ----------
-    xywh : sequence of float
+    xywh : numpy.ndarray
         Bounding boxes in xywh format.
     
     Returns
     -------
-    xyxy : sequence of float
+    xyxy : numpy.ndarray
         Bounding boxes in xyxy format.
     """
-    center_x, center_y, width, height = xywh
+    center_x, center_y = xywh[:, 0], xywh[:, 1]
+    width, height = xywh[:, 2], xywh[:, 3]
     x_min, y_min = center_x - width / 2, center_y - height / 2
     x_max, y_max = center_x + width / 2, center_y + height / 2
-    xyxy = (x_min, y_min, x_max, y_max)
+    xyxy = np.stack((x_min, y_min, x_max, y_max), axis=1)
 
     return xyxy
 
@@ -79,14 +81,41 @@ class VOCDataset(VOCDetection):
         Parse VOC XML annotations.
         """
         objects = annots["annotation"]["object"]
-        labels = [(obj["name"], [int(dim) for dim in obj["bndbox"].values()])
-            for obj in objects]
+        labels = [(CLASSES.index(obj["name"]),
+            [int(dim) for dim in obj["bndbox"].values()]) for obj in objects]
+        cls_targets = np.array([x[0] for x in labels])
+        reg_targets = np.array([x[1] for x in labels])
 
-        return labels
+        return cls_targets, reg_targets
 
     def __getitem__(self, idx):
         image, annots = super().__getitem__(idx)
         image = np.array(image)
-        labels = self._parse_annotations(annots)
+        cls_targets, reg_targets = self._parse_annotations(annots)
 
-        return image, labels
+        return image, cls_targets, reg_targets
+
+
+def _unzip_samples(samples):
+    """
+    Unzip images and targets in samples.
+    """
+    images = [x[0] for x in samples]
+    cls_targets = [x[1] for x in samples]
+    reg_targets = [x[2] for x in samples]
+
+    return images, cls_targets, reg_targets
+
+
+def collate_factory():
+    def collate_fn(samples):
+        # unzip images and labels
+        images, cls_targets, reg_targets = _unzip_samples(samples)
+
+        # apply transforms
+
+        # convert labels to matrices
+
+        return
+
+    return collate_fn
