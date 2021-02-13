@@ -143,7 +143,7 @@ class ToTensor:
 
 
 if __name__ == "__main__":
-    from dataset import _apply_transforms, _unzip_samples, VOCDataset
+    from dataset import VOCDataset, get_dataloader
 
 
     ds = VOCDataset(root="/mnt/storage/kaiming/etc/", image_set="trainval")
@@ -152,13 +152,6 @@ if __name__ == "__main__":
     target_size = (224, 224)
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
-    samples = [ds[i] for i in range(4)]
-    images, cls_targets, reg_targets = _unzip_samples(samples)
-    data = {
-        "images": images,
-        "cls_targets": cls_targets,
-        "reg_targets": reg_targets
-    }
     transforms = [
         NormalizeBboxes(grid_size),
         Bboxes2Matrices(grid_size, num_classes),
@@ -166,5 +159,10 @@ if __name__ == "__main__":
         Normalize(mean, std, 1. / 255),
         ToTensor()
     ]
-    data = _apply_transforms(data, transforms)
-    print(1)
+    dl = get_dataloader(ds, transforms, 4, False)
+    for i, sample in enumerate(dl):
+        images, cls_targets, reg_targets = sample
+        print(images.size())
+        print(cls_targets.size())
+        print(reg_targets.size())
+        break

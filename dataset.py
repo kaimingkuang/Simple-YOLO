@@ -1,4 +1,5 @@
 import numpy as np
+from torch.utils.data import DataLoader
 from torchvision.datasets import VOCDetection
 
 
@@ -118,6 +119,20 @@ def _apply_transforms(data, transforms):
 
 
 def collate_factory(transforms):
+    """
+    Create collate function for dataloaders.
+
+    Parameters
+    ----------
+    transforms : List of transforms
+        List of self-made objects containing image and bounding boxe
+        transforms.
+    
+    Returns
+    -------
+    collate_fn : function
+        A collate function for PyTorch dataloaders.
+    """
     def collate_fn(samples):
         # unzip images and labels
         images, cls_targets, reg_targets = _unzip_samples(samples)
@@ -133,3 +148,34 @@ def collate_factory(transforms):
         return data["images"], data["cls_targets"], data["reg_targets"]
 
     return collate_fn
+
+
+def get_dataloader(dataset, transforms, batch_size, shuffle, num_workers=0):
+    """
+    Create dataloader from dataset.
+
+    Parameters
+    ----------
+    dataset : torch.utils.data.Dataset
+        PyTorch dataset which the dataloader is created from.
+    transforms : List of transforms
+        List of self-made objects containing image and bounding boxe
+        transforms.
+    batch_size : int
+        Dataloader's batch size.
+    shuffle : bool
+        Whether to shuffle samples when collating data.
+    num_workers : int, optional
+        How many subprocesses to use for data loading. 0 means that
+        the data will be loaded in the main process. The default value is 0.
+    
+    Returns
+    -------
+    dataloader : torch.util.data.DataLoader
+        PyTorch dataloader.
+    """
+    collate_fn = collate_factory(transforms)
+    dataloader = DataLoader(dataset, batch_size, shuffle,
+        num_workers=num_workers, collate_fn=collate_fn)
+
+    return dataloader
