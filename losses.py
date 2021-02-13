@@ -71,6 +71,61 @@ class ClsCrossEntropy(nn.Module):
         return cls_loss
 
 
+class DetectLoss(nn.Module):
+    """
+    Detection loss.
+
+    Parameters
+    ----------
+    w_cls : float
+        Weight for classification loss.
+    w_reg : float
+        Weight for regression loss.
+    w_pos : float
+        Weight for positive samples.
+    w_neg : float
+        Weight for negative samples.
+    """
+
+    def __init__(self, w_cls, w_reg, w_pos, w_neg):
+        super().__init__()
+        self.w_cls = w_cls
+        self.w_reg = w_reg
+        self.w_pos = w_pos
+        self.w_neg = w_neg
+
+        self.cls_loss_fn = ClsCrossEntropy(self.w_pos, self.w_neg)
+        self.reg_loss_fn = RegSmoothL1()
+
+    def forward(self, cls_output, reg_output, cls_target, reg_target):
+        """
+        Parameters
+        ----------
+        cls_output : torch.Tensor
+            Classification output.
+        reg_output : torch.Tensor
+            Regression output.
+        cls_target : torch.Tensor
+            Classification target.
+        reg_target : torch.Tensor
+            Regression target.
+
+        Returns
+        -------
+        total_loss : torch.Tensor
+            Total detection loss combining classification and regression loss.
+        cls_loss : torch.Tensor
+            Classification loss.
+        reg_loss : torch.Tensor
+            Regression loss.
+        """
+        cls_loss = self.cls_loss_fn(cls_output, cls_target)
+        reg_loss = self.reg_loss_fn(reg_output, reg_target)
+        total_loss = self.w_cls * cls_loss + self.w_reg * reg_loss
+
+        return total_loss, cls_loss, reg_loss
+
+
 if __name__ == "__main__":
     cls_target = torch.tensor([0, 1, 2, 3])
     cls_output = torch.rand(4, 4)

@@ -59,7 +59,7 @@ def _train_epoch(model, dl_train):
 
     for _, sample in enumerate(dl_train):
         images, cls_targets, reg_targets = sample
-        
+
 
 
 def main():
