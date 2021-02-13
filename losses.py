@@ -63,13 +63,16 @@ class ClsCrossEntropy(nn.Module):
         cls_loss : torch.Tensor
             Classification loss.
         """
-        pos_cls_target = cls_target[cls_target > 0].reshape(-1)
-        pos_cls_output = cls_output[cls_target > 0].reshape(-1)
-        neg_cls_target = cls_target[cls_target == 0].reshape(-1)
-        neg_cls_output = cls_output[cls_target == 0].reshape(-1)
-
-        pos_loss = F.cross_entropy(pos_cls_output, pos_cls_target)
-        neg_loss = F.cross_entropy(neg_cls_output, neg_cls_target)
+        pos_loss = F.cross_entropy(cls_output, cls_target, ignore_index=0)
+        cls_target = torch.where(cls_target > 0, 1, cls_target)
+        neg_loss = F.cross_entropy(cls_output, cls_target, ignore_index=1)
         cls_loss = self.w_pos * pos_loss + self.w_neg * neg_loss
 
         return cls_loss
+
+
+if __name__ == "__main__":
+    cls_target = torch.tensor([0, 1, 2, 3])
+    cls_output = torch.rand(4, 4)
+    print(F.cross_entropy(cls_output, cls_target, ignore_index=3,
+        reduction="none"))

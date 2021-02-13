@@ -54,7 +54,12 @@ def _train_epoch(model, dl_train):
     """
     Train the model for an epoch.
     """
-    pass
+    n_digits = len(str(cfg.epochs))
+    progress = tqdm(total=len(dl_train), ncols=150)
+
+    for _, sample in enumerate(dl_train):
+        images, cls_targets, reg_targets = sample
+        
 
 
 def main():
@@ -74,8 +79,6 @@ def main():
 
     # get dataloaders
     dl_train, dl_val = _setup_dataloaders(root_dir)
-
-    n_digits = len(str(cfg.epochs))
 
     for i in range(cfg.epochs):
         progress = tqdm(total=len(dl_train), ncols=150)
