@@ -50,7 +50,7 @@ def xywh2xyxy(xywh):
     return xyxy
 
 
-def _output2bbox(cls_output, reg_output, image_size):
+def _output2prediction(cls_output, reg_output, image_size):
     """
     Convert raw output to bounding boxes and probabilities.
     """
@@ -114,26 +114,48 @@ def _remove_overlaps(bboxes, iou_thresh):
     return bboxes
 
 
-def _nms(bboxes, prob_thresh, iou_thresh):
+def _nms(predictions, prob_thresh, iou_thresh):
     """
     Apply non-maximum supression.
     """
-    b = len(bboxes)
+    b = len(predictions)
 
     for i in range(b):
         # filter out lower probability predictions
-        bboxes[i] = bboxes[i][bboxes[i][:, 1] >= prob_thresh]
+        predictions[i] = predictions[i][predictions[i][:, 1] >= prob_thresh]
 
         # remove overlaps according to IoU between boxes
-        bboxes[i] = _remove_overlaps(bboxes[i], iou_thresh)
+        predictions[i] = _remove_overlaps(predictions[i], iou_thresh)
 
-    return bboxes
+    return predictions
 
 
 def calculate_detect_result(cls_output, reg_output, cls_target, reg_target,
         image_size, prob_thresh, iou_thresh):
     """
     Calculate the detection result of a single batch.
+
+    Parameters
+    ----------
+    cls_output : torch.Tensor
+        Classification output.
+    reg_output : torch.Tensor
+        Regression output.
+    cls_target : torch.Tensor
+        Classification target.
+    reg_target : torch.Tensor
+        Regression target.
+    imaeg_size : tuple of int
+        Input image size in format of H x W.
+    prob_thresh : float
+        Probability threshold for positive predictions.
+    iou_thresh : float
+        IoU threshold in NMS.
+
+    Returns
+    -------
+    predictions : list of numpy.ndarray
+        List of predictions containing predicted class, probability and bbox.
     """
     # convert torch.Tensor to np.array
     cls_output = torch.softmax(cls_output, dim=1)
@@ -143,11 +165,9 @@ def calculate_detect_result(cls_output, reg_output, cls_target, reg_target,
     reg_target = reg_target.cpu().numpy()
 
     # convert output to bboxes and probabilities
-    bboxes = _output2bbox(cls_output, reg_output, image_size)
+    predictions = _output2prediction(cls_output, reg_output, image_size)
 
     # NMS
-    bboxes = _nms(bboxes, prob_thresh, iou_thresh)
+    predictions = _nms(predictions, prob_thresh, iou_thresh)
 
-    # calculate the mAP
-
-    pass
+    return predictions
