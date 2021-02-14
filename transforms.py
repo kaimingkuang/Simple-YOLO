@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import torch
 
-from dataset import xyxy2xywh
+from utils import xyxy2xywh
 
 
 NINF = -9e6

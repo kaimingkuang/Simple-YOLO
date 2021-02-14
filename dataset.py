@@ -28,52 +28,6 @@ CLASSES = [
 ]
 
 
-def xyxy2xywh(xyxy):
-    """
-    Convert xyxy bouding boxes to xywh format.
-
-    Parameters
-    ----------
-    xyxy : numpy.ndarray
-        Bounding boxes in xyxy format.
-    
-    Returns
-    -------
-    xywh : numpy.ndarray
-        Bounding boxes in xywh format.
-    """
-    x_min, y_min = xyxy[:, 0], xyxy[:, 1]
-    x_max, y_max = xyxy[:, 2], xyxy[:, 3]
-    center_x, center_y = (x_min + x_max) / 2, (y_min + y_max) / 2
-    width, height = x_max - x_min, y_max - y_min
-    xywh = np.stack((center_x, center_y, width, height), axis=1)
-
-    return xywh
-
-
-def xywh2xyxy(xywh):
-    """
-    Convert xywh bouding boxes to xyxy format.
-
-    Parameters
-    ----------
-    xywh : numpy.ndarray
-        Bounding boxes in xywh format.
-    
-    Returns
-    -------
-    xyxy : numpy.ndarray
-        Bounding boxes in xyxy format.
-    """
-    center_x, center_y = xywh[:, 0], xywh[:, 1]
-    width, height = xywh[:, 2], xywh[:, 3]
-    x_min, y_min = center_x - width / 2, center_y - height / 2
-    x_max, y_max = center_x + width / 2, center_y + height / 2
-    xyxy = np.stack((x_min, y_min, x_max, y_max), axis=1)
-
-    return xyxy
-
-
 class VOCDataset(VOCDetection):
 
     @staticmethod
