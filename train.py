@@ -35,7 +35,7 @@ def _parse_cmd_args():
     return args
 
 
-def _setup_dataloaders(root_dir):
+def _setup_dataloaders(root_dir, return_dataset=False):
     """
     Setup dataloaders.
     """
@@ -55,6 +55,9 @@ def _setup_dataloaders(root_dir):
     ds_val = VOCDataset(root_dir, image_set="val")
     dl_val = get_dataloader(ds_val, transforms_val, cfg.batch_size)
 
+    if return_dataset:
+        return dl_train, dl_val, ds_train, ds_val
+    
     return dl_train, dl_val
 
 
@@ -110,9 +113,106 @@ def _train_epoch(model, dl_train, criterion, optimizer, scheduler, epoch_idx):
             f"reg_loss={reg_loss.cpu().item():.4f}")
         progress.update()
 
+    loss_train /= len_train
+    cls_loss_train /= len_train
+    reg_loss_train /= len_train
+
     progress.close()
 
     return loss_train, cls_loss_train, reg_loss_train
+
+
+def _output2bbox(cls_output, reg_output, image_size):
+    """
+    Convert raw output to bounding boxes and probabilities.
+    """
+    cls_max_indices = np.argmax(cls_output, axis=1)
+    cls_max_probs = np.max(cls_output, axis=1)
+    b = cls_output.shape[0]
+    cell_size = (np.array(image_size[::-1]) / cls_output.shape[2:])\
+        [np.newaxis, :]
+
+    bboxes = []
+
+    for i in range(b):
+        # filter the positive predictions
+        cls_pos_indices = np.where(cls_max_indices[i] > 0)
+        reg_output_pos = reg_output[i, :, cls_pos_indices[0],
+            cls_pos_indices[1]]
+
+        # denormalize xy
+        reg_output_pos[:, 0] += cls_pos_indices[1] + 0.5
+        reg_output_pos[:, 1] += cls_pos_indices[0] + 0.5
+        reg_output_pos[:, :2] *= cell_size
+
+        # denormalize wh
+        reg_output_pos[:, 2:] *= cell_size
+
+        # get classes and probabilities of bboxes
+        cls_indices_pos = cls_max_indices[i, cls_pos_indices[0],
+            cls_pos_indices[1]][:, np.newaxis]
+        cls_output_pos = cls_max_probs[i, cls_pos_indices[0],
+            cls_pos_indices[1]][:, np.newaxis]
+
+        # append new bboxes
+        bboxes.append(np.concatenate((cls_output_pos, cls_indices_pos,
+            reg_output_pos), axis=1))
+    
+    return bboxes
+
+
+def _calculate_detect_result(cls_output, reg_output, cls_target, reg_target,
+        image_size):
+    """
+    Calculate the detection result of a single batch.
+    """
+    # convert torch.Tensor to np.array
+    cls_output = torch.softmax(cls_output, dim=1)
+    cls_output = cls_output.cpu().numpy()
+    reg_output = reg_output.cpu().numpy()
+    cls_target = cls_target.cpu().numpy()
+    reg_target = reg_target.cpu().numpy()
+
+    # convert output to bboxes and probabilities
+    bboxes = _output2bbox(cls_output, reg_output, image_size)
+
+    # NMS
+
+    # calculate the mAP
+
+    pass
+
+
+def _eval_epoch(model, dl_val, criterion):
+    """
+    Evaluate the model at the end of an epoch.
+    """
+    model.eval()
+
+    loss_val = 0
+    cls_loss_val = 0
+    reg_loss_val = 0
+    len_val = 0
+
+    with torch.no_grad():
+        for _, sample in enumerate(dl_val):
+            images, cls_target, reg_target = sample
+            images = images.cuda()
+            cls_target = cls_target.cuda()
+            reg_target = reg_target.cuda()
+
+            cls_output, reg_output = model(images)
+            total_loss, cls_loss, reg_loss = criterion(cls_output, reg_output,
+                cls_target, reg_target)
+
+            loss_val += total_loss.cpu().item() * images.size(0)
+            cls_loss_val += cls_loss.cpu().item() * images.size(0)
+            reg_loss_val += reg_loss.cpu().item() * images.size(0)
+
+    loss_val /= len_val
+    cls_loss_val /= len_val
+    reg_loss_val /= len_val
+
 
 
 def main():

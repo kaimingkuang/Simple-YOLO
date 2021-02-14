@@ -45,7 +45,7 @@ class NormalizeBboxes:
             for center in centers_norm]
 
         # calculate normalized centers and sizes
-        bboxes_centers_norm = [norm - idx for norm, idx
+        bboxes_centers_norm = [norm - idx - 0.5 for norm, idx
             in zip(centers_norm, centers_indices)]
         bboxes_sizes_norm = [xywh[:, 2:] / cell_size for xywh, cell_size
             in zip(reg_targets_xywh, cell_sizes)]
