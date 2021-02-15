@@ -77,6 +77,9 @@ def _output2prediction(cls_output, reg_output, image_size):
         # denormalize wh
         reg_output_pos[:, 2:] *= cell_size
 
+        # convert xywh to xyxy
+        reg_output_pos = xywh2xyxy(reg_output_pos)
+
         # get classes and probabilities of bboxes
         cls_indices_pos = cls_max_indices[i, cls_pos_indices[0],
             cls_pos_indices[1]][:, np.newaxis]

@@ -2,10 +2,12 @@ import argparse
 import os
 import sys
 import warnings
+from datetime import datetime
 
 import numpy as np
 import torch
 from torch import optim
+from torch.utils.tensorboard import SummaryWriter
 from torchvision.models import resnext50_32x4d
 from tqdm import tqdm
 
@@ -188,6 +190,30 @@ def _print_eval_results(loss_train, cls_loss_train, reg_loss_train, loss_val,
     sys.stdout.write(f"mAP={map_score:.4f}\n")
 
 
+def _save_model_weights(model_weights, model_weights_dir, epoch_idx):
+    """
+    Save model weights under the log directory.
+    """
+    model_weights_path = os.path.join(model_weights_dir,
+        f"model_epoch_{epoch_idx}.pth")
+    torch.save(model_weights, model_weights_path)
+
+
+def _update_tensorboard(tb_writer, loss_train, cls_loss_train, reg_loss_train,
+        loss_val, cls_loss_val, reg_loss_val, map_score, epoch_idx):
+    """
+    Update tensorboard logs.
+    """
+    tb_writer.add_scalars("loss", {"train": loss_train, "val": loss_val},
+        epoch_idx)
+    tb_writer.add_scalars("cls_loss", {"train": cls_loss_train,
+        "val": cls_loss_val}, epoch_idx)    
+    tb_writer.add_scalars("reg_loss", {"train": reg_loss_train,
+        "val": reg_loss_val}, epoch_idx)   
+    tb_writer.add_scalar("mAP", map_score, epoch_idx)
+    tb_writer.flush()
+
+
 def main():
     # parse command line arguments
     args = _parse_cmd_args()
@@ -201,7 +227,16 @@ def main():
 
     # set data directory and log directory
     root_dir = args.root
-    log_dir = os.path.join(root_dir, args.log_dir)
+    cur_time = datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_dir = os.path.join(root_dir, args.log_dir, cur_time)
+
+    # set up tensorboard_writer
+    tb_writer = SummaryWriter(log_dir)
+
+    # set up model weights directory
+    model_weights_dir = os.path.join(log_dir, "model_weights")
+    if not os.path.exists(model_weights_dir):
+        os.mkdir(model_weights_dir)
 
     # get dataloaders
     dl_train, dl_val = _setup_dataloaders(root_dir)
@@ -222,6 +257,11 @@ def main():
             dl_val, criterion)
         _print_eval_results(loss_train, cls_loss_train, reg_loss_train,
             loss_val, cls_loss_val, reg_loss_val, map_score)
+        
+        _update_tensorboard(tb_writer, loss_train, cls_loss_train,
+            reg_loss_train, loss_val, cls_loss_val, reg_loss_val,
+            map_score, i)
+        _save_model_weights(model.state_dict(), model_weights_dir, i)
 
 
 if __name__ == "__main__":
