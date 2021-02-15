@@ -124,10 +124,3 @@ class DetectLoss(nn.Module):
         total_loss = self.w_cls * cls_loss + self.w_reg * reg_loss
 
         return total_loss, cls_loss, reg_loss
-
-
-if __name__ == "__main__":
-    cls_target = torch.tensor([0, 1, 2, 3])
-    cls_output = torch.rand(4, 4)
-    print(F.cross_entropy(cls_output, cls_target, ignore_index=3,
-        reduction="none"))

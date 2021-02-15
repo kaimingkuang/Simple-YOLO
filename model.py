@@ -69,11 +69,3 @@ class YOLOResNeXt(nn.Module):
         reg_output = self.reg_head(features)
 
         return cls_output, reg_output
-
-
-if __name__ == "__main__":
-    from torchsummary import summary
-
-
-    model = YOLOResNeXt(resnext50_32x4d, 21).cuda()
-    summary(model, (3, 224, 224))

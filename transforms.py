@@ -158,32 +158,3 @@ class ToTensor:
             .float()
 
         return kwargs
-
-
-if __name__ == "__main__":
-    from dataset import VOCDataset, get_dataloader
-
-
-    ds_train = VOCDataset(root="/mnt/storage/kaiming/etc/voc2012",
-        image_set="train")
-    ds_val = VOCDataset(root="/mnt/storage/kaiming/etc/voc2012",
-        image_set="val")
-    grid_size = (7, 7)
-    num_classes = 21
-    target_size = (224, 224)
-    mean = (0.485, 0.456, 0.406)
-    std = (0.229, 0.224, 0.225)
-    transforms = [
-        NormalizeBboxes(grid_size),
-        Bboxes2Matrices(grid_size, num_classes),
-        Resize(target_size),
-        Normalize(mean, std, 1. / 255),
-        ToTensor()
-    ]
-    dl = get_dataloader(ds_val, transforms, 4, False)
-    for i, sample in enumerate(dl):
-        images, cls_targets, reg_targets = sample
-        print(images.size())
-        print(cls_targets.size())
-        print(reg_targets.size())
-        break
