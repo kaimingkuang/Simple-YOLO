@@ -115,7 +115,7 @@ def _train_epoch(model, dl_train, criterion, optimizer, scheduler, epoch_idx):
             f"cls_loss={cls_loss.cpu().item():.4f}, "\
             f"reg_loss={reg_loss.cpu().item():.4f}")
         progress.update()
-    
+
     progress.close()
 
     loss_train /= len_train
@@ -129,8 +129,6 @@ def _eval_epoch(model, dl_val, criterion):
     """
     Evaluate the model at the end of an epoch.
     """
-    sys.stderr.write("\n")
-
     model.eval()
 
     loss_val = 0

@@ -30,6 +30,14 @@ def _get_resnext_backbone(backbone_fn, pretrained):
     return backbone
 
 
+class _OutputHead(nn.Sequential):
+
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.add_module("conv", nn.Conv2d(in_channels, out_channels, 1))
+        self.add_module("relu", nn.ReLU())
+
+
 class YOLOResNeXt(nn.Module):
     """
     ResNeXt based YOLO.
@@ -47,8 +55,8 @@ class YOLOResNeXt(nn.Module):
     def __init__(self, backbone_fn, num_classes, pretrained=True):
         super().__init__()
         self.backbone = _get_resnext_backbone(backbone_fn, pretrained)
-        self.cls_head = nn.Conv2d(2048, num_classes, 1)
-        self.reg_head = nn.Conv2d(2048, 4, 1)
+        self.cls_head = _OutputHead(2048, num_classes)
+        self.reg_head = _OutputHead(2048, 4)
 
     def forward(self, images):
         """

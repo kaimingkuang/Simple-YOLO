@@ -72,6 +72,10 @@ def _calculate_ap_per_class(results, n_positive):
     """
     Calculate AP for a single class according to evaluation results.
     """
+    # if results are empty, return 0 AP
+    if len(results) == 0:
+        return 0
+
     # sort the results by probability in descending order
     results_sort_indices = np.flip(np.argsort(results[:, 1], axis=0))
     results = results[results_sort_indices]
@@ -116,12 +120,15 @@ def calculate_map(y_true, y_pred, num_classes, iou_thresh=0.5):
         mAP score.
     """
     iou_mats = [iou(true[:, 2:], pred[:, 2:]) for true, pred
-        in zip(y_true, y_true)]
+        in zip(y_true, y_pred)]
     # results: pred_class | pred_prob | hit_or_not
     results = [np.zeros((len(y_pred[i]), 3)) for i in range(len(y_pred))]
 
     # get all GTs hit by each prediction
     for i in range(len(y_true)):
+        if len(y_pred[i]) == 0:
+            continue
+
         hit_indices_pair = np.argwhere(iou_mats[i] > iou_thresh)
         hit_pred_indices = np.unique(hit_indices_pair[:, 1])
         results[i][:, :2] = y_pred[i][:, :2]
@@ -132,7 +139,7 @@ def calculate_map(y_true, y_pred, num_classes, iou_thresh=0.5):
             results[i][pred_idx, -1] = 1 if pred_class in gt_classes else 0
 
     # calculate AP for each class
-    results = np.concatenate(results)
+    results = np.concatenate([res for res in results if len(res) > 0])
     n_positive_per_class = [sum([len(y_true[i][y_true[i][:, 0] == cls_idx])
         for i in range(len(y_true))]) for cls_idx
         in range(1, num_classes + 1)]
