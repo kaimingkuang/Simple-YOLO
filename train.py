@@ -60,7 +60,7 @@ def _setup_dataloaders(root_dir, return_dataset=False):
 
     if return_dataset:
         return dl_train, dl_val, ds_train, ds_val
-    
+
     return dl_train, dl_val
 
 
@@ -115,6 +115,8 @@ def _train_epoch(model, dl_train, criterion, optimizer, scheduler, epoch_idx):
             f"cls_loss={cls_loss.cpu().item():.4f}, "\
             f"reg_loss={reg_loss.cpu().item():.4f}")
         progress.update()
+    
+    progress.close()
 
     loss_train /= len_train
     cls_loss_train /= len_train
