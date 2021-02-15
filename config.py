@@ -16,3 +16,7 @@ max_lr = 1e-3
 min_lr = 1e-6
 final_div_factor = min_lr / max_lr
 pct_start = 0.05
+
+# evaluation configuration
+prob_thresh = 0.1
+overlap_iou_thresh = 0.5

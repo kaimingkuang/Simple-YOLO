@@ -97,18 +97,25 @@ def _remove_overlaps(bboxes, iou_thresh):
     probs = bboxes[:, 1]
     iou_mat = iou(bboxes_xyxy, bboxes_xyxy)
 
-    n_boxes = bboxes.shape[0]
-    removed_indices = []
-    for i in range(n_boxes):
-        if i not in removed_indices:
-            overlap_indices = np.where(iou_mat[i, :] > iou_thresh)[0]
-            overlap_probs = probs[overlap_indices]
-            max_prob_idx = np.argmax(overlap_probs).tolist()
-            removed_indices += [idx for idx in overlap_indices
-                if idx != max_prob_idx]
+    n_bboxes = bboxes.shape[0]
+    kept_indices = []
+    all_indices = np.argsort(probs).tolist()
+    
+    while len(all_indices) > 0:
+        # push the index with the largest prob into the stack
+        kept_indices.append(all_indices[0])
 
-    kept_indices = [idx for idx in range(n_boxes)
-        if idx not in removed_indices]
+        # calculate overlapping indices
+        overlap_indices = np.where(iou_mat[all_indices[0], :] > iou_thresh)\
+            [0].tolist()
+        overlap_indices = [idx for idx in overlap_indices
+            if idx != all_indices]
+        overlap_indices = set(overlap_indices).intersection(set(all_indices))
+
+        # remove overlapping indices
+        for idx in overlap_indices:
+            all_indices.remove(idx)
+
     bboxes = bboxes[kept_indices, :]
 
     return bboxes
@@ -130,10 +137,10 @@ def _nms(predictions, prob_thresh, iou_thresh):
     return predictions
 
 
-def calculate_detect_result(cls_output, reg_output, cls_target, reg_target,
-        image_size, prob_thresh, iou_thresh):
+def calculate_detect_prediction(cls_output, reg_output, image_size,
+        prob_thresh, iou_thresh):
     """
-    Calculate the detection result of a single batch.
+    Calculate the detection prediction of a single batch.
 
     Parameters
     ----------
@@ -141,10 +148,6 @@ def calculate_detect_result(cls_output, reg_output, cls_target, reg_target,
         Classification output.
     reg_output : torch.Tensor
         Regression output.
-    cls_target : torch.Tensor
-        Classification target.
-    reg_target : torch.Tensor
-        Regression target.
     imaeg_size : tuple of int
         Input image size in format of H x W.
     prob_thresh : float
@@ -161,8 +164,6 @@ def calculate_detect_result(cls_output, reg_output, cls_target, reg_target,
     cls_output = torch.softmax(cls_output, dim=1)
     cls_output = cls_output.cpu().numpy()
     reg_output = reg_output.cpu().numpy()
-    cls_target = cls_target.cpu().numpy()
-    reg_target = reg_target.cpu().numpy()
 
     # convert output to bboxes and probabilities
     predictions = _output2prediction(cls_output, reg_output, image_size)

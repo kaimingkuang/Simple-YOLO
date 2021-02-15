@@ -13,6 +13,7 @@ import transforms as aug
 from dataset import VOCDataset, get_dataloader
 from losses import DetectLoss
 from model import YOLOResNeXt
+from utils import calculate_detect_prediction
 
 
 warnings.filterwarnings("ignore")
@@ -133,6 +134,9 @@ def _eval_epoch(model, dl_val, criterion):
     reg_loss_val = 0
     len_val = 0
 
+    y_true = []
+    y_pred = []
+
     with torch.no_grad():
         for _, sample in enumerate(dl_val):
             images, cls_target, reg_target = sample
@@ -147,6 +151,11 @@ def _eval_epoch(model, dl_val, criterion):
             loss_val += total_loss.cpu().item() * images.size(0)
             cls_loss_val += cls_loss.cpu().item() * images.size(0)
             reg_loss_val += reg_loss.cpu().item() * images.size(0)
+
+            y_true += calculate_detect_prediction(cls_target, reg_target,
+                cfg.target_size, cfg.prob_thresh, cfg.overlap_iou_thresh)
+            y_pred += calculate_detect_prediction(cls_output, reg_output,
+                cfg.target_size, cfg.prob_thresh, cfg.overlap_iou_thresh)
 
     loss_val /= len_val
     cls_loss_val /= len_val
