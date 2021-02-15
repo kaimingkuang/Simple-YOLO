@@ -4,35 +4,46 @@ import numpy as np
 EPS = 1e-8
 
 
-def _intersection(bboxes_0, bboxes_1):
+def _intersection(bbox_0, bbox_1):
     """
-    Calculate intersections between two lists of bboxes.
+    Calculate intersections between two bboxes.
     """
-    inter_x_min = np.maximum(bboxes_0[:, 0], bboxes_1[:, 0])
-    inter_x_max = np.minimum(bboxes_0[:, 2], bboxes_1[:, 2])
-    inter_y_min = np.maximum(bboxes_0[:, 1], bboxes_1[:, 1])
-    inter_y_max = np.minimum(bboxes_0[:, 3], bboxes_1[:, 3])
+    inter_x_min = np.maximum(bbox_0[0], bbox_1[0])
+    inter_x_max = np.minimum(bbox_0[2], bbox_1[2])
+    inter_y_min = np.maximum(bbox_0[1], bbox_1[1])
+    inter_y_max = np.minimum(bbox_0[3], bbox_1[3])
     inter_x_diff = np.where(inter_x_max - inter_x_min <= 0,
         0, inter_x_max - inter_x_min)
     inter_y_diff = np.where(inter_y_max - inter_y_min <= 0,
         0, inter_y_max - inter_y_min)
-    intersections = inter_x_diff * inter_y_diff
+    intersection = inter_x_diff * inter_y_diff
 
-    return intersections
+    return intersection
 
 
-def _union(bboxes_0, bboxes_1, intersections):
+def _union(bbox_0, bbox_1, intersection):
     """
-    Calculate intersections between two lists of bboxes.
+    Calculate intersections between two bboxes.
     """
     # union(A, B) = (A + B) - intersection(A, B)
-    areas_0 = (bboxes_0[:, 2] - bboxes_0[:, 0])\
-        * (bboxes_0[:, 3] - bboxes_0[:, 1])
-    areas_1 = (bboxes_1[:, 2] - bboxes_1[:, 0])\
-        * (bboxes_1[:, 3] - bboxes_1[:, 1])
-    unions = areas_0 + areas_1 - intersections
+    area_0 = (bbox_0[2] - bbox_0[0])\
+        * (bbox_0[3] - bbox_0[1])
+    area_1 = (bbox_1[2] - bbox_1[0])\
+        * (bbox_1[3] - bbox_1[1])
+    unions = area_0 + area_1 - intersection
 
     return unions
+
+
+def _iou_single(bbox_0, bbox_1):
+    """
+    Calculate the IoU between two bboxes.
+    """
+    inter = _intersection(bbox_0, bbox_1)
+    union = _union(bbox_0, bbox_1, inter)
+    iou = inter / (union + EPS)
+
+    return iou
 
 
 def iou(bboxes_0, bboxes_1):
@@ -49,9 +60,10 @@ def iou(bboxes_0, bboxes_1):
     ious : numpy.ndarray
         IoU scores between two lists of bboxes.
     """
-    inters = _intersection(bboxes_0, bboxes_1)
-    unions = _union(bboxes_0, bboxes_1, inters)
-    ious = inters / (unions + EPS)
+    ious = np.zeros((len(bboxes_0), len(bboxes_1)))
+    for i in range(len(bboxes_0)):
+        for j in range(len(bboxes_1)):
+            ious[i, j] = _iou_single(bboxes_0[i], bboxes_1[j])
 
     return ious
 
@@ -118,14 +130,15 @@ def calculate_map(y_true, y_pred, num_classes, iou_thresh=0.5):
             pred_class = y_pred[i][pred_idx, 0]
             gt_classes = y_true[i][cur_hits, 0]
             results[i][pred_idx, -1] = 1 if pred_class in gt_classes else 0
-    
+
     # calculate AP for each class
     results = np.concatenate(results)
-    n_positive_per_class = [sum([len(y_true[i][y_true[i][:, 0] == cls_idx])])
-        for cls_idx in range(1, num_classes + 1)]
-    ap_per_class = [_calculate_ap_per_class(results[results[:, 0] == cls_idx],
-        n_positive_per_class[cls_idx]) for cls_idx
+    n_positive_per_class = [sum([len(y_true[i][y_true[i][:, 0] == cls_idx])
+        for i in range(len(y_true))]) for cls_idx
         in range(1, num_classes + 1)]
+    ap_per_class = [_calculate_ap_per_class(results[
+        results[:, 0] == cls_idx + 1], n_positive_per_class[cls_idx])
+        for cls_idx in range(num_classes)]
 
     # calculate mAP
     map_score = np.mean(ap_per_class)

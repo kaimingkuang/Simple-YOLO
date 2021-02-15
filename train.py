@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 import warnings
 
 import numpy as np
@@ -12,6 +13,7 @@ import config as cfg
 import transforms as aug
 from dataset import VOCDataset, get_dataloader
 from losses import DetectLoss
+from metrics import calculate_map
 from model import YOLOResNeXt
 from utils import calculate_detect_prediction
 
@@ -52,7 +54,7 @@ def _setup_dataloaders(root_dir, return_dataset=False):
 
     ds_train = VOCDataset(root_dir, image_set="train")
     dl_train = get_dataloader(ds_train, transforms_train, cfg.batch_size,
-        False)
+        num_workers=4)
     ds_val = VOCDataset(root_dir, image_set="val")
     dl_val = get_dataloader(ds_val, transforms_val, cfg.batch_size)
 
@@ -69,7 +71,7 @@ def _get_description_str(epoch_idx):
     total_digits = len(str(cfg.epochs))
     cur_digits = len(str(epoch_idx))
     sup_digits = total_digits - cur_digits
-    desc_str = f"Epoch {'0' * (sup_digits) + str(epoch_idx)}/{cfg.epochs}"
+    desc_str = f"Epoch {'0' * (sup_digits) + str(epoch_idx + 1)}/{cfg.epochs}"
 
     return desc_str
 
@@ -118,8 +120,6 @@ def _train_epoch(model, dl_train, criterion, optimizer, scheduler, epoch_idx):
     cls_loss_train /= len_train
     reg_loss_train /= len_train
 
-    progress.close()
-
     return loss_train, cls_loss_train, reg_loss_train
 
 
@@ -127,6 +127,8 @@ def _eval_epoch(model, dl_val, criterion):
     """
     Evaluate the model at the end of an epoch.
     """
+    sys.stderr.write("\n")
+
     model.eval()
 
     loss_val = 0
@@ -138,7 +140,9 @@ def _eval_epoch(model, dl_val, criterion):
     y_pred = []
 
     with torch.no_grad():
-        for _, sample in enumerate(dl_val):
+        for i, sample in enumerate(dl_val):
+            sys.stdout.write("\r")
+
             images, cls_target, reg_target = sample
             images = images.cuda()
             cls_target = cls_target.cuda()
@@ -151,15 +155,37 @@ def _eval_epoch(model, dl_val, criterion):
             loss_val += total_loss.cpu().item() * images.size(0)
             cls_loss_val += cls_loss.cpu().item() * images.size(0)
             reg_loss_val += reg_loss.cpu().item() * images.size(0)
+            len_val += images.size(0)
 
             y_true += calculate_detect_prediction(cls_target, reg_target,
-                cfg.target_size, cfg.prob_thresh, cfg.overlap_iou_thresh)
+                cfg.target_size, cfg.prob_thresh, cfg.overlap_iou_thresh,
+                cfg.num_classes)
             y_pred += calculate_detect_prediction(cls_output, reg_output,
                 cfg.target_size, cfg.prob_thresh, cfg.overlap_iou_thresh)
+
+            sys.stdout.write(f"Validation: {i + 1}/{len(dl_val)}")
 
     loss_val /= len_val
     cls_loss_val /= len_val
     reg_loss_val /= len_val
+
+    map_score = calculate_map(y_true, y_pred, cfg.num_classes - 1)
+
+    sys.stdout.flush()
+
+    return loss_val, cls_loss_val, reg_loss_val, map_score
+
+
+def _print_eval_results(loss_train, cls_loss_train, reg_loss_train, loss_val,
+        cls_loss_val, reg_loss_val, map_score):
+    """
+    Print training and evaluation results.
+    """
+    sys.stdout.write("\r")
+    sys.stdout.write(f"loss={loss_train:.4f}/{loss_val:.4f} | ")
+    sys.stdout.write(f"cls_loss={cls_loss_train:.4f}/{cls_loss_val:.4f} | ")
+    sys.stdout.write(f"reg_loss={reg_loss_train:.4f}/{reg_loss_val:.4f} | ")
+    sys.stdout.write(f"mAP={map_score:.4f}\n")
 
 
 def main():
@@ -188,8 +214,14 @@ def main():
         total_steps=cfg.epochs * len(dl_train), pct_start=cfg.pct_start,
         final_div_factor=cfg.final_div_factor)
 
+    # training loop
     for i in range(cfg.epochs):
-        _train_epoch(model, dl_train, criterion, optimizer, scheduler, i)
+        loss_train, cls_loss_train, reg_loss_train = _train_epoch(model,
+            dl_train, criterion, optimizer, scheduler, i)
+        loss_val, cls_loss_val, reg_loss_val, map_score = _eval_epoch(model,
+            dl_val, criterion)
+        _print_eval_results(loss_train, cls_loss_train, reg_loss_train,
+            loss_val, cls_loss_val, reg_loss_val, map_score)
 
 
 if __name__ == "__main__":
