@@ -5,18 +5,6 @@ from torchvision.models import resnext50_32x4d
 def _get_resnext_backbone(backbone_fn, pretrained):
     """
     Get ResNeXt backbone.
-
-    Parameters
-    ----------
-    backbone_fn : function
-        Function tht returns a PyTorch model.
-    pretrained : bool
-        Whether to load pretrained weights.
-    
-    Returns
-    -------
-    backbone : nn.Sequential
-        A PyTorch model containing only layers before GAP.
     """
     model = backbone_fn(pretrained)
     backbone = nn.Sequential()
@@ -35,7 +23,8 @@ class _OutputHead(nn.Sequential):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.add_module("conv", nn.Conv2d(in_channels, out_channels, 1))
-        self.add_module("relu", nn.ReLU())
+        self.add_module("norm", nn.BatchNorm2d(out_channels))
+        self.add_module("actv", nn.ReLU())
 
 
 class YOLOResNeXt(nn.Module):
