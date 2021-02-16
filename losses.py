@@ -40,15 +40,12 @@ class ClsCrossEntropy(nn.Module):
     ----------
     w_pos : float
         Weight for positive samples.
-    w_neg : float
-        Weight for negative samples.
     """
 
-    def __init__(self, w_pos, w_neg):
+    def __init__(self, w_pos):
         super().__init__()
         self.w_pos = w_pos
-        self.w_neg = w_neg
-    
+
     def forward(self, cls_output, cls_target):
         """
         Parameters
@@ -63,10 +60,18 @@ class ClsCrossEntropy(nn.Module):
         cls_loss : torch.Tensor
             Classification loss.
         """
-        pos_loss = F.cross_entropy(cls_output, cls_target, ignore_index=0)
-        cls_target = torch.where(cls_target > 0, 1, cls_target)
-        neg_loss = F.cross_entropy(cls_output, cls_target, ignore_index=1)
-        cls_loss = self.w_pos * pos_loss + self.w_neg * neg_loss
+        # object detection loss
+        obj_loss = F.binary_cross_entropy_with_logits(cls_output[:, 0],
+            cls_target[:, 0].float(), pos_weight=torch.tensor(self.w_pos,
+            device=cls_output.device))
+        # object classification loss
+        pos_indices = torch.where(cls_target[:, 0] == 1)
+        clf_loss = F.cross_entropy(
+            cls_output[pos_indices[0], 1:, pos_indices[1], pos_indices[2]],
+            cls_target[pos_indices[0], 1, pos_indices[1], pos_indices[2]]
+        )
+
+        cls_loss = clf_loss + obj_loss
 
         return cls_loss
 
@@ -87,14 +92,13 @@ class DetectLoss(nn.Module):
         Weight for negative samples.
     """
 
-    def __init__(self, w_cls, w_reg, w_pos, w_neg):
+    def __init__(self, w_cls, w_reg, w_pos):
         super().__init__()
         self.w_cls = w_cls
         self.w_reg = w_reg
         self.w_pos = w_pos
-        self.w_neg = w_neg
 
-        self.cls_loss_fn = ClsCrossEntropy(self.w_pos, self.w_neg)
+        self.cls_loss_fn = ClsCrossEntropy(self.w_pos)
         self.reg_loss_fn = RegSmoothL1()
 
     def forward(self, cls_output, reg_output, cls_target, reg_target):

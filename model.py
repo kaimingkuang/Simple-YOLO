@@ -44,7 +44,7 @@ class YOLOResNeXt(nn.Module):
     def __init__(self, backbone_fn, num_classes, pretrained=True):
         super().__init__()
         self.backbone = _get_resnext_backbone(backbone_fn, pretrained)
-        self.cls_head = _OutputHead(2048, num_classes)
+        self.cls_head = _OutputHead(2048, 1 + num_classes)
         self.reg_head = _OutputHead(2048, 4)
 
     def forward(self, images):

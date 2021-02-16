@@ -142,9 +142,9 @@ def calculate_map(y_true, y_pred, num_classes, iou_thresh=0.5):
     results = np.concatenate([res for res in results if len(res) > 0])
     n_positive_per_class = [sum([len(y_true[i][y_true[i][:, 0] == cls_idx])
         for i in range(len(y_true))]) for cls_idx
-        in range(1, num_classes + 1)]
+        in range(num_classes)]
     ap_per_class = [_calculate_ap_per_class(results[
-        results[:, 0] == cls_idx + 1], n_positive_per_class[cls_idx])
+        results[:, 0] == cls_idx], n_positive_per_class[cls_idx])
         for cls_idx in range(num_classes)]
 
     # calculate mAP

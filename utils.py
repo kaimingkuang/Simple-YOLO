@@ -51,12 +51,10 @@ def xywh2xyxy(xywh):
     return xyxy
 
 
-def _output2prediction(cls_output, reg_output, image_size):
+def _output2prediction(cls_output, reg_output, prob_thresh, image_size):
     """
     Convert raw output to bounding boxes and probabilities.
     """
-    cls_max_indices = np.argmax(cls_output, axis=1)
-    cls_max_probs = np.max(cls_output, axis=1)
     b = cls_output.shape[0]
     cell_size = (np.array(image_size[::-1]) / cls_output.shape[2:])\
         [np.newaxis, :]
@@ -65,7 +63,7 @@ def _output2prediction(cls_output, reg_output, image_size):
 
     for i in range(b):
         # filter the positive predictions
-        cls_pos_indices = np.where(cls_max_indices[i] > 0)
+        cls_pos_indices = np.where(cls_output[i, 0] > prob_thresh)
         reg_output_pos = reg_output[i, :, cls_pos_indices[0],
             cls_pos_indices[1]]
 
@@ -81,13 +79,13 @@ def _output2prediction(cls_output, reg_output, image_size):
         reg_output_pos = xywh2xyxy(reg_output_pos)
 
         # get classes and probabilities of bboxes
-        cls_indices_pos = cls_max_indices[i, cls_pos_indices[0],
-            cls_pos_indices[1]][:, np.newaxis]
-        cls_output_pos = cls_max_probs[i, cls_pos_indices[0],
+        cls_indices_pos = np.argmax(cls_output[i, 1:, cls_pos_indices[0],
+            cls_pos_indices[1]], axis=1)[:, np.newaxis]
+        cls_prob_pos = cls_output[i, 0, cls_pos_indices[0],
             cls_pos_indices[1]][:, np.newaxis]
 
         # append new bboxes
-        bboxes.append(np.concatenate((cls_indices_pos, cls_output_pos,
+        bboxes.append(np.concatenate((cls_indices_pos, cls_prob_pos,
             reg_output_pos), axis=1))
 
     return bboxes
@@ -185,17 +183,20 @@ def calculate_detect_prediction(cls_output, reg_output, image_size,
         List of predictions containing predicted class, probability and bbox.
     """
     # convert torch.Tensor to np.array
-    if cls_output.ndim == 3:
+    if cls_output.size(1) == 2:
         gt_flag = True
-        cls_output = _onehot_encode(cls_output, num_classes)
+        cls_output = torch.cat((cls_output[:, 0:1],
+            _onehot_encode(cls_output[:, 1], num_classes)), dim=1)
     else:
         gt_flag = False
-        cls_output = torch.softmax(cls_output, dim=1)
+        cls_output[:, 0] = torch.sigmoid(cls_output[:, 0])
+        cls_output[:, 1:] = torch.softmax(cls_output[:, 1:], dim=1)
     cls_output = cls_output.cpu().numpy()
     reg_output = reg_output.cpu().numpy()
 
     # convert output to bboxes and probabilities
-    predictions = _output2prediction(cls_output, reg_output, image_size)
+    predictions = _output2prediction(cls_output, reg_output, prob_thresh,
+        image_size)
 
     # NMS
     if not gt_flag:

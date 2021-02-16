@@ -171,7 +171,7 @@ def _eval_epoch(model, dl_val, criterion):
     cls_loss_val /= len_val
     reg_loss_val /= len_val
 
-    map_score = calculate_map(y_true, y_pred, cfg.num_classes - 1)
+    map_score = calculate_map(y_true, y_pred, cfg.num_classes)
 
     sys.stdout.flush()
 
@@ -243,7 +243,7 @@ def main():
 
     # model, criterion, optimizer and scheduler setup
     model = YOLOResNeXt(resnext50_32x4d, cfg.num_classes).cuda()
-    criterion = DetectLoss(cfg.w_cls, cfg.w_reg, cfg.w_pos, cfg.w_neg)
+    criterion = DetectLoss(cfg.w_cls, cfg.w_reg, cfg.w_pos)
     optimizer = optim.AdamW(model.parameters())
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, cfg.max_lr,
         total_steps=cfg.epochs * len(dl_train), pct_start=cfg.pct_start,

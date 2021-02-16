@@ -80,16 +80,16 @@ class Bboxes2Matrices:
         b = len(cls_targets)
 
         # construct empty target matrices
-        cls_mat = np.ones((b, ) + self.grid_size, dtype=np.int16) * -1
+        cls_mat = np.zeros((b, 2) + self.grid_size)
         reg_mat = np.ones((b, 4) + self.grid_size) * NINF
 
         # fill each object in matrices
         for i in range(b):
             obj_indices = kwargs["obj_indices"][i].T.tolist()
-            cls_mat[i, obj_indices[1], obj_indices[0]] = cls_targets[i]
+            cls_mat[i, 0, obj_indices[1], obj_indices[0]] = 1
+            cls_mat[i, 1, obj_indices[1], obj_indices[0]] = cls_targets[i]
             reg_mat[i, :, obj_indices[1], obj_indices[0]] = reg_targets[i]
 
-        cls_mat = cls_mat + 1
         kwargs["cls_targets"] = cls_mat
         kwargs["reg_targets"] = reg_mat
 
